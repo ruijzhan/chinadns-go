@@ -1,0 +1,18 @@
+language: go
+
+go:
+  - master
+
+arch:
+  - amd64
+  - arm64
+
+services:
+  - docker
+
+script:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - go vet ./...
+  - go test -v ./...
+  - docker build . -t $DOCKER_USERNAME/chinadns-go:$(uname -p)
+  - docker push $DOCKER_USERNAME/chinadns-go:$(uname -p)
