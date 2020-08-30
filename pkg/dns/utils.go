@@ -9,6 +9,7 @@ import (
 	"github.com/yl2chen/cidranger"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 )
 
@@ -16,6 +17,7 @@ var (
 	chnRanger cidranger.Ranger
 	opts      *options.Options
 )
+
 
 func init()  {
 	opts = options.NewOptions()
@@ -50,4 +52,8 @@ func isChineseARecord(msg *dns.Msg) (bool, error) {
 	}
 	return false, fmt.Errorf("query to %s returns %d ANS, %d AUTH, %d EXT",
 		msg.Question[0].Name, len(msg.Answer), len(msg.Ns), len(msg.Extra))
+}
+
+func isChineseIP(ip string) (bool,error) {
+	return chnRanger.Contains(net.ParseIP(ip))
 }

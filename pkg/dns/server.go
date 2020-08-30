@@ -7,7 +7,7 @@ import (
 
 func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if r.Opcode == dns.OpcodeQuery {
-		m := doubleDNSQuery(r)
+		m := multiQuery(r, opts.DNSServers)
 		w.WriteMsg(m)
 		return
 	}
