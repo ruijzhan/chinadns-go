@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/ruijzhan/chinadns-go/cidr"
-	"github.com/ruijzhan/chinadns-go/utils"
+	"github.com/ruijzhan/chinadns-go/pkg/cidr"
 	"log"
 	"net/http"
 	"os"
@@ -37,7 +36,7 @@ func main() {
 	defer resp.Body.Close()
 
 	log.Println("Parsing ...")
-	cidrs.List = utils.CirdsByContry(resp.Body, countryCode)
+	cidrs.List = cidr.CirdsByCountry(resp.Body, countryCode)
 	content, err := json.Marshal(cidrs)
 	if err != nil {
 		log.Fatal(err)

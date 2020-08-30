@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ruijzhan/chinadns-go/dns"
+	"github.com/ruijzhan/chinadns-go/pkg/dns"
 	"log"
 )
 

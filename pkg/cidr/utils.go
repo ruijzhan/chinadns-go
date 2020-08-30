@@ -1,4 +1,4 @@
-package utils
+package cidr
 
 import (
 	"bufio"
@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 )
-
 
 func line2CidrV4(line string) (string, bool) {
 	if !strings.HasPrefix(line, "apnic|") {
@@ -25,7 +24,7 @@ func line2CidrV4(line string) (string, bool) {
 	return tokens[3] + "/" + strconv.Itoa(mask), true
 }
 
-func CirdsByContry(r io.Reader, cCode string) (cidrs []string) {
+func CirdsByCountry(r io.Reader, cCode string) (cidrs []string) {
 
 	bReader := bufio.NewReader(r)
 

@@ -1,4 +1,4 @@
-package utils
+package cidr
 
 import (
 	"github.com/stretchr/testify/assert"
