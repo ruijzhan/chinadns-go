@@ -18,8 +18,7 @@ var (
 	opts      *options.Options
 )
 
-
-func init()  {
+func init() {
 	opts = options.NewOptions()
 
 	f, err := os.Open(opts.CHNRoutePath)
@@ -54,6 +53,6 @@ func isChineseARecord(msg *dns.Msg) (bool, error) {
 		msg.Question[0].Name, len(msg.Answer), len(msg.Ns), len(msg.Extra))
 }
 
-func isChineseIP(ip string) (bool,error) {
+func isChineseIP(ip string) (bool, error) {
 	return chnRanger.Contains(net.ParseIP(ip))
 }

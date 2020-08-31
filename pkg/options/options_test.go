@@ -11,14 +11,14 @@ func TestParseServers(t *testing.T) {
 		expect     []*ServerConfig
 	}{
 		{
-			serversStr: "223.5.5.5:53,192.168.34.248:1153",
+			serversStr: "223.5.5.5,192.168.34.248:1153",
 			expect: []*ServerConfig{
 				{
-					IP: "223.5.5.5",
+					IP:   "223.5.5.5",
 					Port: 53,
 				},
 				{
-					IP: "192.168.34.248",
+					IP:   "192.168.34.248",
 					Port: 1153,
 				},
 			},
@@ -26,7 +26,7 @@ func TestParseServers(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		for i, s := range parseServers(testCase.serversStr){
+		for i, s := range parseServers(testCase.serversStr) {
 			assert.Equal(t, testCase.expect[i].IP, s.IP)
 			assert.Equal(t, testCase.expect[i].Port, s.Port)
 		}
