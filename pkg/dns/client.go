@@ -28,7 +28,7 @@ type exchangeResult struct {
 	err error
 }
 
-func asyncExchange(cli *dns.Client, req *dns.Msg, server string) <-chan *exchangeResult {
+func asyncExchange(cli *dns.Client, req *dns.Msg, server string, ctx context.Context) <-chan *exchangeResult {
 	ch := make(chan *exchangeResult)
 
 	go func(cli *dns.Client, req *dns.Msg, server string, ch chan<- *exchangeResult) {
@@ -39,7 +39,7 @@ func asyncExchange(cli *dns.Client, req *dns.Msg, server string) <-chan *exchang
 			rtt: rtt,
 			err: err,
 		}:
-		case <-time.After(10 * time.Second):
+		case <-ctx.Done():
 			return
 		}
 
@@ -62,7 +62,7 @@ func singleQuery(request *dns.Msg, dnsServer *options.ServerConfig, resultCh cha
 		req := &dns.Msg{}
 		req.SetQuestion(q.Name, q.Qtype)
 		dnsClient.Timeout = opts.DNSClientTimeout
-		ch := asyncExchange(dnsClient, req, dnsServer.String())
+		ch := asyncExchange(dnsClient, req, dnsServer.String(), ctx)
 		select {
 		case res := <-ch:
 			if res.err != nil {
