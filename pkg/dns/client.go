@@ -33,11 +33,16 @@ func asyncExchange(cli *dns.Client, req *dns.Msg, server string) <-chan *exchang
 
 	go func(cli *dns.Client, req *dns.Msg, server string, ch chan<- *exchangeResult) {
 		ans, rtt, err := cli.Exchange(req, server)
-		ch <- &exchangeResult{
+		select {
+		case ch <- &exchangeResult{
 			ans: ans,
 			rtt: rtt,
 			err: err,
+		}:
+		case <-time.After(10 * time.Second):
+			return
 		}
+
 	}(cli, req, server, ch)
 	return ch
 }
@@ -47,12 +52,12 @@ func singleQuery(request *dns.Msg, dnsServer *options.ServerConfig, resultCh cha
 	m.SetReply(request)
 	m.Compress = true
 	for _, q := range m.Question {
-		if strings.HasPrefix(q.Name,"http://") || strings.HasPrefix(q.Name, "https://") {
+		if strings.HasPrefix(q.Name, "http://") || strings.HasPrefix(q.Name, "https://") {
 			u, err := url.Parse(q.Name)
 			if err != nil {
 				continue
 			}
-			q.Name = u.Host+"."
+			q.Name = u.Host + "."
 		}
 		req := &dns.Msg{}
 		req.SetQuestion(q.Name, q.Qtype)
@@ -104,7 +109,7 @@ func waitResult(ch <-chan *queryResult) (*queryResult, error) {
 			if confirmed { //如果中国服务器确定是外国IP，直接返回结果
 				return result, nil
 			} else {
-				if saved != nil {
+				if saved == nil {
 					saved = result //否则缓存起来
 				}
 			}
