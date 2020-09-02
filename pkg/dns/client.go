@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"github.com/ruijzhan/chinadns-go/pkg/options"
+	"github.com/uniplaces/carbon"
 	"log"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -115,11 +117,16 @@ func waitResult(ch <-chan *queryResult) (*queryResult, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("failed to resolve domain on all servers")
+	return nil, fmt.Errorf("query timeout")
 }
 
-func multiQuery(request *dns.Msg, servers []*options.ServerConfig) *dns.Msg {
+func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr net.Addr, timeout time.Duration) *dns.Msg {
+	start := carbon.Now().Time
 	chResults := make(chan *queryResult, len(servers))
+	go func() {
+		<-time.After(timeout)
+		close(chResults)
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -130,9 +137,13 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig) *dns.Msg {
 	result, err := waitResult(chResults)
 	cancel()
 	if err != nil {
-		log.Println(err)
+		log.Printf("Failed to resolve %s : %s\n", request.Question[0].Name, err.Error())
 		return &dns.Msg{}
 	}
-	log.Printf("Resulted result from %s: %s\n", result.serverConfig.IP, result.dnsResult.Question[0].Name)
+	log.Printf("Resolved [%s] -> [%s]\t from [%s] in %dms",
+		remoteAddr.String(),
+		result.dnsResult.Question[0].Name[:len(result.dnsResult.Question[0].Name)-1],
+		result.serverConfig.IP,
+		carbon.Now().Sub(start).Milliseconds())
 	return result.dnsResult
 }

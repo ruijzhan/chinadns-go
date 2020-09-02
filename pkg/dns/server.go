@@ -3,11 +3,12 @@ package dns
 import (
 	"github.com/miekg/dns"
 	"log"
+	"time"
 )
 
 func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg) {
 	if r.Opcode == dns.OpcodeQuery {
-		m := multiQuery(r, opts.DNSServers)
+		m := multiQuery(r, opts.DNSServers, w.RemoteAddr(), 10*time.Second)
 		w.WriteMsg(m)
 		return
 	}
