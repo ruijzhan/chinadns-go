@@ -11,8 +11,7 @@ test:
 	go test ./...
 
 build:
-	CGO_ENABLED=0 go build ./cmd/chinadns
-	CGO_ENABLED=0 go build ./cmd/chnroutegen
+	CGO_ENABLED=0 go build -o chinadns ./cmd
 
 docker-build: test
 	docker build . -t $(IMG)
@@ -20,9 +19,5 @@ docker-build: test
 docker-push:
 	docker push $(IMG)
 
-chnroute:
-	./chnroutegen
-	echo "chnroute.json generated"
-
 clean:
-	rm -f chinadns chnroutegen
+	rm -f chinadns

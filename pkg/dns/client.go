@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"github.com/ruijzhan/chinadns-go/pkg/options"
+	country_cidr "github.com/ruijzhan/country-cidr"
 	"github.com/uniplaces/carbon"
 	"log"
 	"net"
@@ -86,11 +87,8 @@ func waitResult(ch <-chan *queryResult) (*queryResult, error) {
 	var confirmed bool
 
 	for result := range ch {
-		isChinaDNS, err := isChineseIP(result.serverConfig.IP)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
+		isChinaDNS := isChineseIP(result.serverConfig.IP)
+
 		isChinaResult, err := isChineseARecord(result.dnsResult)
 		if err != nil {
 			log.Println(err)
@@ -140,10 +138,26 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 		log.Printf("Failed to resolve %s : %s\n", request.Question[0].Name, err.Error())
 		return &dns.Msg{}
 	}
-	log.Printf("Resolved [%s] -> [%s]\t from [%s] in %dms",
-		remoteAddr.String(),
-		result.dnsResult.Question[0].Name[:len(result.dnsResult.Question[0].Name)-1],
-		result.serverConfig.IP,
-		carbon.Now().Sub(start).Milliseconds())
+	go func() {
+		msTaken := carbon.Now().Sub(start).Milliseconds()
+		country := "US"
+		for _, rr := range result.dnsResult.Answer {
+			if rr, ok := rr.(*dns.A); ok {
+				c, err := country_cidr.From(rr.A.String())
+				if err != nil {
+					continue
+				}
+				country = c
+				break
+			}
+		}
+		log.Printf("Resolved [%s] -> %dms\t[%s][%s]\tby [%s]",
+			remoteAddr.String(),
+			msTaken,
+			country,
+			result.dnsResult.Question[0].Name[:len(result.dnsResult.Question[0].Name)-1],
+			result.serverConfig.IP)
+	}()
+
 	return result.dnsResult
 }
