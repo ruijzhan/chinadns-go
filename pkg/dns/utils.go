@@ -5,6 +5,8 @@ import (
 	"github.com/miekg/dns"
 	"github.com/ruijzhan/chinadns-go/pkg/options"
 	"github.com/ruijzhan/country-cidr"
+	"net/url"
+	"strings"
 )
 
 var (
@@ -31,4 +33,15 @@ func isChineseARecord(msg *dns.Msg) (bool, error) {
 
 func isChineseIP(ip string) bool {
 	return country_cidr.Country("CN").ContainsIPstr(ip)
+}
+
+func rmHttp(s string) string {
+	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
+		u, err := url.Parse(s)
+		if err != nil {
+			return s
+		}
+		return u.Host + "."
+	}
+	return s
 }

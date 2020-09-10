@@ -9,8 +9,7 @@ import (
 	"github.com/uniplaces/carbon"
 	"log"
 	"net"
-	"net/url"
-	"strings"
+	"sync"
 	"time"
 )
 
@@ -51,38 +50,42 @@ func asyncExchange(cli *dns.Client, req *dns.Msg, server string, ctx context.Con
 }
 
 func singleQuery(request *dns.Msg, dnsServer *options.ServerConfig, resultCh chan<- *queryResult, ctx context.Context) {
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
+
 	m := &dns.Msg{}
 	m.SetReply(request)
-	m.Compress = true
 	for _, q := range m.Question {
-		if strings.HasPrefix(q.Name, "http://") || strings.HasPrefix(q.Name, "https://") {
-			u, err := url.Parse(q.Name)
-			if err != nil {
-				continue
+		wg.Add(1)
+		go func(q dns.Question) {
+			defer wg.Done()
+			q.Name = rmHttp(q.Name)
+			req := &dns.Msg{}
+			req = req.SetQuestion(q.Name, q.Qtype)
+			req.Compress = true
+			dnsClient.Timeout = opts.DNSClientTimeout
+			ch := asyncExchange(dnsClient, req, dnsServer.String(), ctx)
+			select {
+			case res := <-ch:
+				if res.err != nil {
+					log.Printf("Resolving %s error: %v\n", q.Name, res.err)
+				} else {
+					mu.Lock()
+					m.Answer = append(m.Answer, res.ans.Answer...)
+					m.Ns = append(m.Ns, res.ans.Ns...)
+					m.Extra = append(m.Extra, res.ans.Extra...)
+					mu.Unlock()
+				}
+			case <-ctx.Done():
+				return
 			}
-			q.Name = u.Host + "."
-		}
-		req := &dns.Msg{}
-		req.SetQuestion(q.Name, q.Qtype)
-		dnsClient.Timeout = opts.DNSClientTimeout
-		ch := asyncExchange(dnsClient, req, dnsServer.String(), ctx)
-		select {
-		case res := <-ch:
-			if res.err != nil {
-				log.Printf("Resolving %s error: %v\n", q.Name, res.err)
-			} else {
-				m.Answer = append(m.Answer, res.ans.Answer...)
-				m.Ns = append(m.Ns, res.ans.Ns...)
-				m.Extra = append(m.Extra, res.ans.Extra...)
-			}
-		case <-ctx.Done():
-			return
-		}
+		}(q)
 	}
+	wg.Wait()
 	resultCh <- &queryResult{dnsServer, m}
 }
 
-func waitResult(ch <-chan *queryResult) (*queryResult, error) {
+func filter(ch <-chan *queryResult) (*queryResult, error) {
 	var saved *queryResult
 	var confirmed bool
 
@@ -132,7 +135,7 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 		go singleQuery(request, server, chResults, ctx)
 	}
 
-	result, err := waitResult(chResults)
+	result, err := filter(chResults)
 	cancel()
 	if err != nil {
 		log.Printf("Failed to resolve %s : %s\n", request.Question[0].Name, err.Error())
@@ -151,12 +154,13 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 				break
 			}
 		}
-		log.Printf("Resolved [%s] -> %dms\t[%s][%s]\tby [%s]",
+		log.Printf("[%s] -> [%s] [%s][%s] \t%dms",
 			remoteAddr.String(),
-			msTaken,
+			result.serverConfig.IP,
 			country,
 			result.dnsResult.Question[0].Name[:len(result.dnsResult.Question[0].Name)-1],
-			result.serverConfig.IP)
+			msTaken,
+		)
 	}()
 
 	return result.dnsResult
