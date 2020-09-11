@@ -45,3 +45,12 @@ func rmHttp(s string) string {
 	}
 	return s
 }
+
+func getIP(msg *dns.Msg) string {
+	for _, rr := range msg.Answer {
+		if rr, ok := rr.(*dns.A); ok {
+			return rr.A.String()
+		}
+	}
+	return ""
+}

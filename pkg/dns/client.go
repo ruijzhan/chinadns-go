@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"github.com/ruijzhan/chinadns-go/pkg/options"
-	country_cidr "github.com/ruijzhan/country-cidr"
+	cidr "github.com/ruijzhan/country-cidr"
 	"github.com/uniplaces/carbon"
 	"log"
 	"net"
@@ -146,7 +146,7 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 		country := "US"
 		for _, rr := range result.dnsResult.Answer {
 			if rr, ok := rr.(*dns.A); ok {
-				c, err := country_cidr.From(rr.A.String())
+				c, err := cidr.From(rr.A.String())
 				if err != nil {
 					continue
 				}
@@ -154,10 +154,11 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 				break
 			}
 		}
-		log.Printf("[%s] -> [%s] [%s][%s] \t%dms",
+		log.Printf("[%s] -> [%s] [%s][%s][%s] \t%dms",
 			remoteAddr.String(),
 			result.serverConfig.IP,
 			country,
+			getIP(result.dnsResult),
 			result.dnsResult.Question[0].Name[:len(result.dnsResult.Question[0].Name)-1],
 			msTaken,
 		)
