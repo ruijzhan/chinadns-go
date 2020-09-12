@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"github.com/ruijzhan/chinadns-go/pkg/options"
-	cidr "github.com/ruijzhan/country-cidr"
 	"github.com/uniplaces/carbon"
 	"log"
 	"net"
@@ -20,8 +19,10 @@ func init() {
 }
 
 type queryResult struct {
-	serverConfig *options.ServerConfig
-	dnsResult    *dns.Msg
+	server   *options.ServerConfig
+	resolved *dns.Msg
+	isCN     bool
+	err      error
 }
 
 type exchangeResult struct {
@@ -33,7 +34,7 @@ type exchangeResult struct {
 func asyncExchange(cli *dns.Client, req *dns.Msg, server string, ctx context.Context) <-chan *exchangeResult {
 	ch := make(chan *exchangeResult)
 
-	go func(cli *dns.Client, req *dns.Msg, server string, ch chan<- *exchangeResult) {
+	go func() {
 		ans, rtt, err := cli.Exchange(req, server)
 		select {
 		case ch <- &exchangeResult{
@@ -45,7 +46,7 @@ func asyncExchange(cli *dns.Client, req *dns.Msg, server string, ctx context.Con
 			return
 		}
 
-	}(cli, req, server, ch)
+	}()
 	return ch
 }
 
@@ -82,43 +83,46 @@ func singleQuery(request *dns.Msg, dnsServer *options.ServerConfig, resultCh cha
 		}(q)
 	}
 	wg.Wait()
-	resultCh <- &queryResult{dnsServer, m}
+	if len(m.Answer) == 0 { //canceled by context
+		return
+	}
+	if isCN, err := isChineseARecord(m); err == nil {
+		resultCh <- &queryResult{dnsServer, m, isCN, nil}
+	}
 }
 
 func filter(ch <-chan *queryResult) (*queryResult, error) {
-	var saved *queryResult
+	var cached *queryResult
 	var confirmed bool
+	var servers []string
 
 	for result := range ch {
-		isChinaDNS := isChineseIP(result.serverConfig.IP)
-
-		isChinaResult, err := isChineseARecord(result.dnsResult)
-		if err != nil {
-			log.Println(err)
+		if result.err != nil {
+			//log.Println(result.err)
 			continue
 		}
-
+		servers = append(servers, result.server.IP)
 		switch {
-		case isChinaDNS && isChinaResult:
+		case result.server.IsCN && result.isCN:
 			return result, nil //中国解析IP 直接返回
-		case isChinaDNS && !isChinaResult:
-			confirmed = true //确认不是中国解析结果
-			if saved != nil {
-				return saved, nil //如果外国服务器结果已经保存，直接返回
+		case result.server.IsCN && !result.isCN:
+			if cached != nil {
+				return cached, nil //如果外国服务器结果已经保存，直接返回
 			}
-		case !isChinaDNS && isChinaResult:
+			confirmed = true //确认不是中国解析结果
+		case !result.server.IsCN && result.isCN:
 			return result, nil //中国解析结果，直接返回
-		case !isChinaDNS && !isChinaResult:
+		case !result.server.IsCN && !result.isCN:
 			if confirmed { //如果中国服务器确定是外国IP，直接返回结果
 				return result, nil
 			} else {
-				if saved == nil {
-					saved = result //否则缓存起来
+				if cached == nil {
+					cached = result //否则缓存起来
 				}
 			}
-		}
+		} //end of switch
 	}
-	return nil, fmt.Errorf("query timeout")
+	return nil, fmt.Errorf("query timeout, servers responded: %v", servers)
 }
 
 func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr net.Addr, timeout time.Duration) *dns.Msg {
@@ -138,31 +142,27 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 	result, err := filter(chResults)
 	cancel()
 	if err != nil {
-		log.Printf("Failed to resolve %s : %s\n", request.Question[0].Name, err.Error())
+		log.Printf("Resolving %s error: %s\n", request.Question[0].Name, err.Error())
 		return &dns.Msg{}
 	}
 	go func() {
 		msTaken := carbon.Now().Sub(start).Milliseconds()
-		country := "US"
-		for _, rr := range result.dnsResult.Answer {
-			if rr, ok := rr.(*dns.A); ok {
-				c, err := cidr.From(rr.A.String())
-				if err != nil {
-					continue
-				}
-				country = c
-				break
-			}
+
+		var country string
+		if result.isCN {
+			country = "CN"
+		} else {
+			country = "!CN"
 		}
-		log.Printf("[%s] -> [%s] [%s][%s][%s] \t%dms",
+
+		log.Printf("[%s] -> [%s] [%s][%s] \t%dms",
 			remoteAddr.String(),
-			result.serverConfig.IP,
+			result.server.IP,
 			country,
-			getIP(result.dnsResult),
-			result.dnsResult.Question[0].Name[:len(result.dnsResult.Question[0].Name)-1],
+			result.resolved.Question[0].Name[:len(result.resolved.Question[0].Name)-1],
 			msTaken,
 		)
 	}()
 
-	return result.dnsResult
+	return result.resolved
 }

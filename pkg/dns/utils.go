@@ -52,5 +52,10 @@ func getIP(msg *dns.Msg) string {
 			return rr.A.String()
 		}
 	}
+	for _, rr := range msg.Answer {
+		if rr, ok := rr.(*dns.CNAME); ok {
+			return rr.Target
+		}
+	}
 	return ""
 }

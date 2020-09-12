@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg) {
+func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 	if r.Opcode == dns.OpcodeQuery {
 		m := multiQuery(r, opts.DNSServers, w.RemoteAddr(), 10*time.Second)
 		w.WriteMsg(m)
@@ -17,7 +17,7 @@ func handleDnsRequest(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func RunDNSServer() error {
-	dns.HandleFunc(".", handleDnsRequest)
+	dns.HandleFunc(".", requestHandler)
 	server := &dns.Server{Addr: opts.ListenAddr + ":" + opts.ListenPort, Net: "udp"}
 	defer server.Shutdown()
 

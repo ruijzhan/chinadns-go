@@ -2,6 +2,7 @@ package options
 
 import (
 	"github.com/jessevdk/go-flags"
+	cidr "github.com/ruijzhan/country-cidr"
 	"log"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ type Options struct {
 type ServerConfig struct {
 	IP   string
 	Port int
+	IsCN bool
 }
 
 func (sc *ServerConfig) String() string {
@@ -29,14 +31,15 @@ func parseServers(s string) []*ServerConfig {
 	servers := make([]*ServerConfig, 0)
 	for _, serverStr := range strings.Split(s, ",") {
 		ts := strings.Split(serverStr, ":")
+		isCN := cidr.Country("CN").ContainsIPstr(ts[0])
 		if len(ts) == 1 {
-			servers = append(servers, &ServerConfig{IP: ts[0], Port: 53})
+			servers = append(servers, &ServerConfig{IP: ts[0], Port: 53, IsCN: isCN})
 		} else if len(ts) == 2 {
 			port, err := strconv.Atoi(ts[1])
 			if err != nil {
 				log.Fatalf("Invalid port number: %v", err)
 			}
-			servers = append(servers, &ServerConfig{IP: ts[0], Port: port})
+			servers = append(servers, &ServerConfig{IP: ts[0], Port: port, IsCN: isCN})
 		} else {
 			log.Fatalf("Invalid server address: %s", s)
 		}
