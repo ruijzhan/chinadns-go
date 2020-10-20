@@ -2,7 +2,7 @@ package dns
 
 import (
 	"github.com/miekg/dns"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -11,7 +11,7 @@ func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 		m := multiQuery(r, opts.DNSServers, w.RemoteAddr(), 10*time.Second)
 		w.WriteMsg(m)
 	} else {
-		log.Printf("Unsupported Opcode: %d", r.Opcode)
+		log.Warningf("Unsupported Opcode: %d", r.Opcode)
 		w.WriteMsg(&dns.Msg{})
 	}
 }
@@ -21,6 +21,6 @@ func RunDNSServer() error {
 	server := &dns.Server{Addr: opts.ListenAddr + ":" + opts.ListenPort, Net: "udp"}
 	defer server.Shutdown()
 
-	log.Printf("Starting at %s\n", opts.ListenPort)
+	log.Infof("Starting at %s\n", opts.ListenPort)
 	return server.ListenAndServe()
 }

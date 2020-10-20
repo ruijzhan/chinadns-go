@@ -31,10 +31,6 @@ func isChineseARecord(msg *dns.Msg) (bool, error) {
 		msg.Question[0].Name, len(msg.Answer), len(msg.Ns), len(msg.Extra))
 }
 
-func isChineseIP(ip string) bool {
-	return country_cidr.Country("CN").ContainsIPstr(ip)
-}
-
 func rmHttp(s string) string {
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		u, err := url.Parse(s)
@@ -44,18 +40,4 @@ func rmHttp(s string) string {
 		return u.Host + "."
 	}
 	return s
-}
-
-func getIP(msg *dns.Msg) string {
-	for _, rr := range msg.Answer {
-		if rr, ok := rr.(*dns.A); ok {
-			return rr.A.String()
-		}
-	}
-	for _, rr := range msg.Answer {
-		if rr, ok := rr.(*dns.CNAME); ok {
-			return rr.Target
-		}
-	}
-	return ""
 }

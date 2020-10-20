@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"github.com/ruijzhan/chinadns-go/pkg/options"
+	log "github.com/sirupsen/logrus"
 	"github.com/uniplaces/carbon"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -69,7 +69,7 @@ func singleQuery(request *dns.Msg, dnsServer *options.ServerConfig, resultCh cha
 			select {
 			case res := <-ch:
 				if res.err != nil {
-					log.Printf("Resolving %s error: %v\n", q.Name, res.err)
+					log.Errorf("Resolving %s error: %v\n", q.Name, res.err)
 				} else {
 					mu.Lock()
 					m.Answer = append(m.Answer, res.ans.Answer...)
@@ -142,7 +142,7 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 	result, err := filter(chResults)
 	cancel()
 	if err != nil {
-		log.Printf("Resolving %s error: %s\n", request.Question[0].Name, err.Error())
+		log.Errorf("Resolving %s error: %s\n", request.Question[0].Name, err.Error())
 		return &dns.Msg{}
 	}
 	go func() {
@@ -155,7 +155,7 @@ func multiQuery(request *dns.Msg, servers []*options.ServerConfig, remoteAddr ne
 			country = "!CN"
 		}
 
-		log.Printf("[%s] -> [%s] [%s][%s] \t%dms",
+		log.Infof("[%s] -> [%s] [%s][%s] \t%dms",
 			remoteAddr.String(),
 			result.server.IP,
 			country,

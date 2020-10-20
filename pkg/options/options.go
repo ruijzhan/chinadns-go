@@ -3,7 +3,7 @@ package options
 import (
 	"github.com/jessevdk/go-flags"
 	cidr "github.com/ruijzhan/country-cidr"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
 	"time"
