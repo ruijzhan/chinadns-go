@@ -1,15 +1,29 @@
-package dns
+package chinadns
 
 import (
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
-	"time"
+	"github.com/uniplaces/carbon"
 )
 
 func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 	if r.Opcode == dns.OpcodeQuery {
-		m := multiQuery(r, opts.DNSServers, w.RemoteAddr(), 10*time.Second)
+		start := carbon.Now().Time
+		m, err := multiQuery(r, opts.DNSServers)
+		msTaken := carbon.Now().Sub(start).Milliseconds()
+		// Reply to client anyway
 		w.WriteMsg(m)
+
+		if err != nil {
+			log.Warning(err)
+		} else {
+			log.Infof("[%s] -> [%s] \t%dms",
+				w.RemoteAddr().String(),
+				r.Question[0].Name[:len(r.Question[0].Name)-1],
+				msTaken,
+			)
+		}
+
 	} else {
 		log.Warningf("Unsupported Opcode: %d", r.Opcode)
 		w.WriteMsg(&dns.Msg{})

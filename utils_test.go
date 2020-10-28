@@ -1,4 +1,4 @@
-package options
+package chinadns
 
 import (
 	"github.com/stretchr/testify/assert"

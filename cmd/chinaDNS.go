@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ruijzhan/chinadns-go/pkg/dns"
+	"github.com/ruijzhan/chinadns-go"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -24,7 +24,7 @@ func init() {
 }
 
 func main() {
-	err := dns.RunDNSServer()
+	err := chinadns.RunDNSServer()
 	if err != nil {
 		log.Fatal(err)
 	}
