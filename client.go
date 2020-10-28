@@ -106,7 +106,7 @@ func filter(results <-chan *queryResult) (*queryResult, error) {
 	return nil, fmt.Errorf("query timeout, servers responded: %v", servers)
 }
 
-func multiQuery(request *dns.Msg, servers []*ServerConfig) (*dns.Msg, error) {
+func queryServers(req *dns.Msg, servers []*ServerConfig) (*dns.Msg, error) {
 	chResults := make(chan *queryResult, len(servers))
 	go func() {
 		<-time.After(opts.DNSClientTimeout)
@@ -116,14 +116,14 @@ func multiQuery(request *dns.Msg, servers []*ServerConfig) (*dns.Msg, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	for _, server := range servers {
-		go server.resolve(request, chResults, ctx)
+		go server.resolve(req, chResults, ctx)
 	}
 
 	result, err := filter(chResults)
 	cancel()
 
 	if err != nil {
-		return &dns.Msg{}, fmt.Errorf("Resolving %s error: %v\n", request.Question[0].Name, err)
+		return &dns.Msg{}, fmt.Errorf("Resolving %s error: %v\n", req.Question[0].Name, err)
 	}
 	return result.ans, nil
 }

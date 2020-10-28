@@ -9,7 +9,7 @@ import (
 func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 	if r.Opcode == dns.OpcodeQuery {
 		start := carbon.Now().Time
-		m, err := multiQuery(r, opts.DNSServers)
+		m, err := queryServers(r, opts.DNSServers)
 		msTaken := carbon.Now().Sub(start).Milliseconds()
 		// Reply to client anyway
 		w.WriteMsg(m)
@@ -17,8 +17,10 @@ func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 		if err != nil {
 			log.Warning(err)
 		} else {
-			log.Infof("[%s] -> [%s] \t%dms",
+			isCN, _ := isChineseARecord(m)
+			log.Infof("[%s] -> [ChinaIP: %v] [%s] %dms",
 				w.RemoteAddr().String(),
+				isCN,
 				r.Question[0].Name[:len(r.Question[0].Name)-1],
 				msTaken,
 			)
