@@ -10,7 +10,6 @@ import (
 	"strings"
 )
 
-
 func isChineseARecord(msg *dns.Msg) (bool, error) {
 	for _, rr := range msg.Answer {
 		if rr, ok := rr.(*dns.A); ok {

@@ -16,9 +16,10 @@ type dnsAnswer struct {
 }
 
 type ServerConfig struct {
-	IP   string
-	Port int
-	IsCN bool
+	IP        string
+	Port      int
+	IsCN      bool
+	dnsClient *dns.Client
 }
 
 func (s *ServerConfig) String() string {

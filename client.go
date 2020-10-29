@@ -9,17 +9,11 @@ import (
 	"time"
 )
 
-var dnsClient *dns.Client
-
-func init() {
-	dnsClient = new(dns.Client)
-}
-
 func (s *ServerConfig) query(req *dns.Msg, ctx context.Context) <-chan *dnsAnswer {
 	ch := make(chan *dnsAnswer)
 
 	go func() {
-		ans, _, err := dnsClient.Exchange(req, s.String())
+		ans, _, err := s.dnsClient.Exchange(req, s.String())
 		select {
 		case ch <- &dnsAnswer{
 			ans: ans,
@@ -47,7 +41,6 @@ func (s *ServerConfig) resolve(req *dns.Msg, resultCh chan<- *queryResult, ctx c
 			req := &dns.Msg{}
 			req = req.SetQuestion(q.Name, q.Qtype)
 			req.Compress = true
-			dnsClient.Timeout = timeout
 			ch := s.query(req, ctx)
 			select {
 			case res := <-ch:
@@ -106,24 +99,24 @@ func filter(results <-chan *queryResult) (*queryResult, error) {
 	return nil, fmt.Errorf("query timeout, servers responded: %v", servers)
 }
 
-func queryServers(req *dns.Msg, servers []*ServerConfig) (*dns.Msg, error) {
-	chResults := make(chan *queryResult, len(servers))
+func (c *ChinaDNS) resolve(question *dns.Msg) (*dns.Msg, error) {
+	chResults := make(chan *queryResult, len(c.upstreamServs))
 	go func() {
-		<-time.After(timeout)
+		<-time.After(c.servTimeout)
 		close(chResults)
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	for _, server := range servers {
-		go server.resolve(req, chResults, ctx)
+	for _, server := range c.upstreamServs {
+		go server.resolve(question, chResults, ctx)
 	}
 
 	result, err := filter(chResults)
 	cancel()
 
 	if err != nil {
-		return &dns.Msg{}, fmt.Errorf("Resolving %s error: %v\n", req.Question[0].Name, err)
+		return &dns.Msg{}, fmt.Errorf("Resolving %s error: %v\n", question.Question[0].Name, err)
 	}
 	return result.ans, nil
 }

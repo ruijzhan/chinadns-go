@@ -4,16 +4,30 @@ import (
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
 	"github.com/uniplaces/carbon"
+	"time"
 )
 
-var (
-	dnsServers []*ServerConfig
-)
+type ChinaDNS struct {
+	upstreamServs []*ServerConfig
+	servTimeout   time.Duration
+}
 
-func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
-	if r.Opcode == dns.OpcodeQuery {
+func NewChinaDNS(opt *Options) *ChinaDNS {
+	servers := parseServers(opt.Servers)
+	for _, s := range servers {
+		s.dnsClient = new(dns.Client)
+		s.dnsClient.Timeout = opt.DNSClientTimeout
+	}
+
+	return &ChinaDNS{upstreamServs: servers,
+		servTimeout: opt.DNSClientTimeout,
+	}
+}
+
+func (c *ChinaDNS) requestHandler(w dns.ResponseWriter, question *dns.Msg) {
+	if question.Opcode == dns.OpcodeQuery {
 		start := carbon.Now().Time
-		m, err := queryServers(r, dnsServers)
+		m, err := c.resolve(question)
 		msTaken := carbon.Now().Sub(start).Milliseconds()
 		// Reply to client anyway
 		w.WriteMsg(m)
@@ -25,20 +39,20 @@ func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 			log.Infof("[%s] -> [ChinaIP: %v] [%s] %dms",
 				w.RemoteAddr().String(),
 				isCN,
-				r.Question[0].Name[:len(r.Question[0].Name)-1],
+				question.Question[0].Name[:len(question.Question[0].Name)-1],
 				msTaken,
 			)
 		}
 
 	} else {
-		log.Warningf("Unsupported Opcode: %d", r.Opcode)
+		log.Warningf("Unsupported Opcode: %d", question.Opcode)
 		w.WriteMsg(&dns.Msg{})
 	}
 }
 
 func RunDNSServer(opts *Options) error {
-	dnsServers = opts.DNSServers
-	dns.HandleFunc(".", requestHandler)
+	chinaDNS := NewChinaDNS(opts)
+	dns.HandleFunc(".", chinaDNS.requestHandler)
 	server := &dns.Server{Addr: opts.ListenAddr + ":" + opts.ListenPort, Net: "udp"}
 	defer server.Shutdown()
 
