@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+var (
+	//opts *Options
+	timeout = 5*time.Second
+)
+
+func init() {
+	//opts = NewOptions()
+}
+
 type Options struct {
 	Servers          string        `short:"s" required:"true" description:"Upstream dns servers, separated by ','"`
 	DNSClientTimeout time.Duration `short:"t" default:"5s" description:"DNS query timeout in seconds"`

@@ -10,13 +10,6 @@ import (
 	"strings"
 )
 
-var (
-	opts *Options
-)
-
-func init() {
-	opts = NewOptions()
-}
 
 func isChineseARecord(msg *dns.Msg) (bool, error) {
 	for _, rr := range msg.Answer {

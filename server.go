@@ -6,10 +6,14 @@ import (
 	"github.com/uniplaces/carbon"
 )
 
+var (
+	dnsServers []*ServerConfig
+)
+
 func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 	if r.Opcode == dns.OpcodeQuery {
 		start := carbon.Now().Time
-		m, err := queryServers(r, opts.DNSServers)
+		m, err := queryServers(r, dnsServers)
 		msTaken := carbon.Now().Sub(start).Milliseconds()
 		// Reply to client anyway
 		w.WriteMsg(m)
@@ -32,7 +36,8 @@ func requestHandler(w dns.ResponseWriter, r *dns.Msg) {
 	}
 }
 
-func RunDNSServer() error {
+func RunDNSServer(opts *Options) error {
+	dnsServers = opts.DNSServers
 	dns.HandleFunc(".", requestHandler)
 	server := &dns.Server{Addr: opts.ListenAddr + ":" + opts.ListenPort, Net: "udp"}
 	defer server.Shutdown()

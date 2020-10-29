@@ -24,7 +24,8 @@ func init() {
 }
 
 func main() {
-	err := chinadns.RunDNSServer()
+	opts := chinadns.NewOptions()
+	err := chinadns.RunDNSServer(opts)
 	if err != nil {
 		log.Fatal(err)
 	}

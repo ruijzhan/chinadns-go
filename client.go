@@ -47,7 +47,7 @@ func (s *ServerConfig) resolve(req *dns.Msg, resultCh chan<- *queryResult, ctx c
 			req := &dns.Msg{}
 			req = req.SetQuestion(q.Name, q.Qtype)
 			req.Compress = true
-			dnsClient.Timeout = opts.DNSClientTimeout
+			dnsClient.Timeout = timeout
 			ch := s.query(req, ctx)
 			select {
 			case res := <-ch:
@@ -109,7 +109,7 @@ func filter(results <-chan *queryResult) (*queryResult, error) {
 func queryServers(req *dns.Msg, servers []*ServerConfig) (*dns.Msg, error) {
 	chResults := make(chan *queryResult, len(servers))
 	go func() {
-		<-time.After(opts.DNSClientTimeout)
+		<-time.After(timeout)
 		close(chResults)
 	}()
 
