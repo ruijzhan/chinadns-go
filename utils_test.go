@@ -8,11 +8,11 @@ import (
 func TestParseServers(t *testing.T) {
 	testCases := []struct {
 		serversStr string
-		expect     []*ServerConfig
+		expect     []*remoteDNS
 	}{
 		{
 			serversStr: "223.5.5.5,192.168.34.248:1153",
-			expect: []*ServerConfig{
+			expect: []*remoteDNS{
 				{
 					IP:   "223.5.5.5",
 					Port: 53,
