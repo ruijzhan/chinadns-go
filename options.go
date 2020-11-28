@@ -13,9 +13,9 @@ type Options struct {
 	ListenAddr       string        `short:"l" default:""`
 }
 
-func NewOptions() *Options {
-	opt := new(Options)
-	_, err := flags.Parse(opt)
+func NewOptions() Options {
+	opt := Options{}
+	_, err := flags.Parse(&opt)
 	if err != nil {
 		log.Fatal("Parse error:", err)
 	}

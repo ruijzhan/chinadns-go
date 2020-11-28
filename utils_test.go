@@ -26,7 +26,11 @@ func TestParseServers(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		for i, s := range parseServers(testCase.serversStr) {
+		servers, err := parseServers(testCase.serversStr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, s := range servers {
 			assert.Equal(t, testCase.expect[i].IP, s.IP)
 			assert.Equal(t, testCase.expect[i].Port, s.Port)
 		}
