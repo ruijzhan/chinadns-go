@@ -1,7 +1,6 @@
 package chinadns
 
 import (
-	"context"
 	"fmt"
 	"github.com/miekg/dns"
 	log "github.com/sirupsen/logrus"
@@ -9,10 +8,19 @@ import (
 	"time"
 )
 
-type queryResult struct {
+type resolveError struct {
+	query  string
+	errMsg string
+}
+
+func (e resolveError) Error() string {
+	return fmt.Sprintf("failed to resolve %s: %s", e.query, e.errMsg)
+}
+
+type DNSResult struct {
 	// server represents the upstream DNS server which
 	// resolves the question
-	server *remoteDNS
+	server remoteDNS
 	answer *dns.Msg
 	err    error
 }
@@ -20,12 +28,16 @@ type queryResult struct {
 // filter validates dns resolving results read from chRes
 // based on rules(see comments). It returns a valid result if there is any
 // or an error.
-func filter(chRes <-chan *queryResult) (*queryResult, error) {
-	var cached *queryResult
+func filter(chRes <-chan *DNSResult) (*DNSResult, error) {
+	var cached *DNSResult
 	var confirmed bool
 	var servers []string
 
 	for res := range chRes {
+		if res.err != nil {
+			log.Warning(res.err)
+			continue
+		}
 		servers = append(servers, res.server.IP)
 		ansIsCN, err := isChineseARecord(res.answer)
 		// isChineseARecord may fail if the *dns.Msg contains no A records
@@ -54,6 +66,7 @@ func filter(chRes <-chan *queryResult) (*queryResult, error) {
 			}
 		}
 	}
+
 	return nil, fmt.Errorf("query timeout, servers responded: %v", servers)
 }
 
@@ -62,8 +75,11 @@ type ChinaDNS struct {
 	servTimeout   time.Duration
 }
 
-func NewChinaDNS(opt *Options) *ChinaDNS {
-	servers := parseServers(opt.Servers)
+func NewChinaDNS(opt Options) *ChinaDNS {
+	servers, err := parseServers(opt.Servers)
+	if err != nil {
+		log.Fatalf("Error: %v", err)
+	}
 	for _, s := range servers {
 		s.dnsClient.Timeout = opt.DNSClientTimeout
 	}
@@ -75,21 +91,17 @@ func NewChinaDNS(opt *Options) *ChinaDNS {
 
 // resolve method sends dns question to multiple upstream dns servers
 // filters a valid result and returns it
-func (c *ChinaDNS) resolve(question *dns.Msg) (*dns.Msg, error) {
-	chResults := make(chan *queryResult, len(c.upstreamServs))
-	go func() {
-		<-time.After(c.servTimeout)
-		close(chResults)
-	}()
+func (c ChinaDNS) resolve(question *dns.Msg) (*dns.Msg, error) {
+	//chErrors := make(chan error, len(c.upstreamServs))
+	//ctx, cancel := context.WithCancel(context.Background())
+	chs := make([]<-chan *DNSResult, len(c.upstreamServs))
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	for _, server := range c.upstreamServs {
-		go server.resolve(question, chResults, ctx)
+	for i, server := range c.upstreamServs {
+		chs[i] = server.resolve(question)
 	}
 
+	chResults := ManyToOne(chs)
 	result, err := filter(chResults)
-	cancel()
 
 	if err != nil {
 		return &dns.Msg{}, fmt.Errorf("Resolving %s error: %v\n", question.Question[0].Name, err)
@@ -97,7 +109,7 @@ func (c *ChinaDNS) resolve(question *dns.Msg) (*dns.Msg, error) {
 	return result.answer, nil
 }
 
-func (c *ChinaDNS) requestHandler(w dns.ResponseWriter, question *dns.Msg) {
+func (c ChinaDNS) requestHandler(w dns.ResponseWriter, question *dns.Msg) {
 	if question.Opcode == dns.OpcodeQuery {
 		start := carbon.Now().Time
 		m, err := c.resolve(question)
@@ -123,7 +135,7 @@ func (c *ChinaDNS) requestHandler(w dns.ResponseWriter, question *dns.Msg) {
 	}
 }
 
-func RunDNSServer(opts *Options) error {
+func RunDNSServer(opts Options) error {
 	chinaDNS := NewChinaDNS(opts)
 	dns.HandleFunc(".", chinaDNS.requestHandler)
 	server := &dns.Server{Addr: opts.ListenAddr + ":" + opts.ListenPort, Net: "udp"}
