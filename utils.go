@@ -35,7 +35,7 @@ func rmHttp(s string) string {
 }
 
 func ManyToOne(many []<-chan *DNSResult) <-chan *DNSResult {
-	one := make(chan *DNSResult)
+	one := make(chan *DNSResult, len(many))
 	wg := sync.WaitGroup{}
 	for _, c := range many {
 		wg.Add(1)

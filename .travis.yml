@@ -12,6 +12,7 @@ services:
 
 script:
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - go mod tidy
   - go vet ./...
   - go test -v ./...
   - docker build . -t $DOCKER_USERNAME/chinadns-go:$(uname -p)
